@@ -1,3 +1,6 @@
+import pdb
+import sys 
+
 import numpy as np
 import torch
 
@@ -5,6 +8,15 @@ import torch
 from pyepo import EPO
 from pyepo.func.abcmodule import optModule
 from pyepo.func.utlis import _solveWithObj4Par, _solve_in_pass, _cache_in_pass
+
+### Simulation code import ###
+module_path = '../../../simulation_test/'
+
+# Add the directory to sys.path
+if module_path not in sys.path:
+    sys.path.append(module_path)
+
+import dsl_icml_mike_code as dsl_icml_m
 
 class DSLoss(optModule):
     """
@@ -127,7 +139,7 @@ class DSLFunc(torch.autograd.Function):
                                               optmodel=optmodel,
                                               processes=processes,
                                               pool=pool)
-        
+        #pdb.set_trace()
         # Calculate loss - a function of cp, c, h
         loss = step_size * (obj_plus - obj_minus)
         
@@ -137,7 +149,11 @@ class DSLFunc(torch.autograd.Function):
         if optmodel.modelSense == EPO.MAXIMIZE:
             loss = - np.array(loss)
     
-        #print(loss)
+        ### Test if loss code is correct ###
+        # pdb.set_trace()
+        # mike_icml_loss_calc = dsl_icml_m.DSL(pred=cp, y_hat=c, h=h)
+        # print(loss.sum())
+        # print(mike_icml_loss_calc)
         
         # Convert numpy vectors back to tensors
         loss = torch.FloatTensor(loss).to(device)
