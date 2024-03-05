@@ -1,0 +1,26 @@
+defaults:
+  - sim: gen_data
+  - mlflow: mlflow_exp
+  - _self_
+
+general:
+  gpus: 0
+dataset:
+  base_path: /home1/yongpeng/PyEPO_DSL/data/simulation/
+  setup: icml_simulation
+  dataset_path: slope-m-0
+  test: test
+  file_extension: .pkl
+model:
+  model_name: DSL
+  model_func:
+    _target_: pkg.pyepo.func.dsl.DSLoss
+    _partial_: True
+  batch_size: 32
+  h_exp: -0.25
+  finite_diff_sch: 'B'
+  processes: 0
+  epochs: 30
+num_trials: 100
+sim:
+  n: 20

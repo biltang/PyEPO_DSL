@@ -1,0 +1,21 @@
+defaults:
+  - mlflow: mlflow_exp 
+  - _self_
+
+sim:
+  training_n:
+    - 100
+    - 1000
+    - 5000
+  val_n: 1000
+  test_n: 1000
+  deg:
+    - 1
+    - 2
+    - 4
+    - 6
+  noise_half_width: 
+    - 0.0
+    - 0.5
+  num_trials: 10
+  sim_setup_name: pyepo_shortest_path_reproduce

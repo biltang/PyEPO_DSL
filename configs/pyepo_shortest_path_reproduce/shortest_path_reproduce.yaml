@@ -1,0 +1,23 @@
+defaults:
+  - mlflow: mlflow_exp 
+  - loss_func: dsl
+  - _self_
+
+general:
+  gpus: 0
+  log_level: 10
+dataset:
+  base_path: /home1/yongpeng/PyEPO_DSL/data/simulation/
+  setup: pyepo_shortest_path_reproduce
+  dataset_path: n_100_deg_1_e_0.0
+  file: trial_
+  num_trials: 30
+  file_extension: .pkl
+model:
+  batch_size: 32
+  lr: 0.01
+  lr_schedule: False
+  processes: 0
+  epochs: 30
+optmodel:
+  _target_: pyepo_shortest_path_model.shortestPathModel

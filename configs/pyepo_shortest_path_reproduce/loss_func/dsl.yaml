@@ -1,0 +1,8 @@
+loss_name: DSL
+loss_func:
+  _target_: pkg.pyepo.func.dsl.DSLoss
+  _partial_: True
+h_exp: -0.25
+h_sch: False
+finite_diff_sch: 'B'
+ 

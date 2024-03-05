@@ -1,0 +1,22 @@
+n: 10000
+x_config:
+  x_min: 0
+  x_max: 2
+y_config:
+  m: 0
+  m0: -4
+  c0: -0.2
+noise_config:
+  alpha: 1
+  expon_offset: 0.5
+  expon_rate: 2
+  norm_std: 0.25
+mlflow:
+  create_exp: False
+  root_path: /Users/yongpeng@usc.edu/
+save_info:
+  sim_setup_name: icml_simulation
+  save_name: test.pkl
+  noisy_y_save: False
+optmodel:
+  _target_: dsl_icml_model.icmlCondLinOptModel
