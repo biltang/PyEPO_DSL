@@ -1,7 +1,19 @@
+from dataclasses import dataclass, field
+import sys 
 import pdb 
+from pathlib import Path
+import logging 
 
 import numpy as np
 import pyepo
+import hydra 
+from mlflow import MlflowClient
+from hydra.core.config_store import ConfigStore
+import pickle 
+
+# add system path to src directory
+sys.path.append('/home1/yongpeng/PyEPO_DSL/')
+from utils.experiment_utils import setup_mlflow_experiment, create_path_if_not_exist
 
 def f_star(x: np.ndarray, m: float=0, m0: float=-4, c0: float=-0.2) -> np.ndarray:
     """generate expected y values from x values without noise
@@ -86,5 +98,127 @@ def gen_data_instance(n: float, x_config: dict={}, exp_y_config: dict={}, noise_
     y = Y(exp_y, noise).reshape(-1,1)
     return x, exp_y, noise, y
 
-def wrap_pyepo_dataset(optmodel, x, costs):
-    return pyepo.data.dataset.optDataset(optmodel, x, costs)    
+
+# ----------------------------------------------------------
+# Programmatically generate data and mlflow experiments
+# -----------------------------------------------------------
+""" 
+The following code is used to programmatically generate data and mlflow experiments.
+It can be safely ignored if one wants to just generate data using the functions
+from above.
+"""
+@dataclass
+class XConfig:
+    # x config values
+    x_min: float = 0 # minimum value of x in uniform distribution
+    x_max: float = 2 # maximum value of x in uniform distribution
+    
+@dataclass
+class ExpYConfig:
+    # Expected y config values
+    m: float = 0 # slope of segment x >= t_point
+    m0: float = -4 # default slope of segment x < t_point
+    c0: float = -0.2 # intersection of slopes m and m0 in output space y
+    noisy_y_save: bool = False # save noisy y values
+    
+@dataclass
+class NoiseConfig:
+    # Noise config values
+    alpha: float = 1 # weighting between exponential vs gaussian noise
+    expon_offset: float = 0.5 # offset to exponential noise component
+    expon_rate: float = 2 # rate parameter for exponential rv
+    norm_std: float = 0.25 # std dev for gaussian noise component
+
+@dataclass
+class MLFlowConfig:
+    create_exp: bool = False
+    root_path: str = "/Users/yongpeng@usc.edu/"
+    
+@ dataclass
+class SaveInfo:
+    sim_setup_name: str = "icml_simulation"
+    save_name: str = "data.pkl"
+    
+@dataclass
+class GenDataConfig:
+    # optimization model
+    optmodel: str 
+    
+    n: int = 10000 # number of samples
+    
+    x_config: XConfig = field(default_factory=XConfig) # x config values
+    y_config: ExpYConfig = field(default_factory=ExpYConfig) # Expected y config values
+    noise_config: NoiseConfig = field(default_factory=NoiseConfig)
+    
+    # mlflow config
+    mlflow: MLFlowConfig = field(default_factory=MLFlowConfig)
+    
+    # save info
+    save_info: SaveInfo = field(default_factory=SaveInfo)
+    
+    
+cs = ConfigStore.instance()
+cs.store(name="icml_gen_data_cfg", node=GenDataConfig)
+
+def wrap_pyepo_dataset(cfg: GenDataConfig):
+    # ---------------------------
+    # Generate PyEPO Dataset
+    # ---------------------------
+    x, exp_y, noise, y = gen_data_instance(n=cfg.n,
+                                           x_config=cfg.x_config,
+                                           exp_y_config=cfg.y_config,
+                                           noise_config=cfg.noise_config)
+    optmodel = hydra.utils.instantiate(cfg.optmodel)
+    
+    if cfg.save_info.noisy_y_save == True:
+        dataset = pyepo.data.dataset.optDataset(optmodel, x, y)
+    else:
+        dataset = pyepo.data.dataset.optDataset(optmodel, x, exp_y)
+        
+    return dataset
+
+
+@hydra.main(version_base=None, config_path="../configs/icml/sim/", config_name="gen_data")
+def main(cfg: GenDataConfig):
+    
+    # ---------------------------
+    # Generate PyEPO Dataset
+    # ---------------------------
+    dataset = wrap_pyepo_dataset(cfg)
+    
+    # ---------------------------
+    # Save Data
+    # ---------------------------
+    """Simulation data instance/experiment is configured by:
+    1) slopes m of the piecewise linear function
+    """
+    # create mlflow experiment and save data
+    setup_name = cfg.save_info.sim_setup_name
+    
+    cur_data_instance_name = f"slope-m-{cfg.y_config.m}" 
+    path = str(Path(__file__).parent.parent / "data/simulation/" / setup_name / cur_data_instance_name) # relative path to other directory
+    
+    """By default, config file config.mlflow.create_exp is set to False, and below block
+    will not execute
+    """
+    if cfg.mlflow.create_exp == True: # create mlflow experiment in this case
+        client = MlflowClient(tracking_uri="databricks")
+        experiment_tags = {'sim_setup': cfg.save_info.sim_setup_name,
+                           'slope_m': str(cfg.y_config.m),                           
+                           'n': str(cfg.n)} 
+        logging.info(f"experiment_tags: {experiment_tags}")
+        experiment_id = setup_mlflow_experiment(client=client,
+                                                root_path=cfg.mlflow.root_path,
+                                                experiment_name=f"{cfg.save_info.sim_setup_name}_{cur_data_instance_name}",
+                                                experiment_tags=experiment_tags) 
+    
+    # create path
+    create_path_if_not_exist(path)                    
+    
+    # save data
+    with open(path + '/' + cfg.save_info.save_name, 'wb') as file:
+        pickle.dump(dataset, file)
+        
+        
+if __name__ == "__main__":
+    main()  
