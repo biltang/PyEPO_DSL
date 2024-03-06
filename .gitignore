@@ -130,3 +130,5 @@ logs/*
 wandb/*
 archives/*
 data/*
+mlruns/*
+outputs/*
