@@ -67,7 +67,7 @@ class icmlCondLinOptModel_gurobi(optGrbModel):
     
     
 # train model
-def trainModel(reg, loss_func, optmodel, loader_train, loader_test, num_epochs=20, lr=1e-2):
+def trainModel(reg, loss_func, optmodel, loader_train, loader_test, use_gpu=False, num_epochs=20, lr=1e-2):
     # set adam optimizer
     optimizer = torch.optim.Adam(reg.parameters(), lr=lr)
     # train mode
@@ -76,15 +76,15 @@ def trainModel(reg, loss_func, optmodel, loader_train, loader_test, num_epochs=2
     loss_log = []
     loss_log_regret = [pyepo.metric.regret(reg, optmodel, loader_test)]
     # init elpased time
-    elapsed = 0
+    start = time.time()
     for epoch in range(num_epochs):
         # start timing
-        tick = time.time()
+        
         # load data
         for i, data in enumerate(loader_train):
             x, c, w, z = data
             # cuda
-            if torch.cuda.is_available():
+            if use_gpu == True:
                 x, c, w, z = x.cuda(), c.cuda(), w.cuda(), z.cuda()
             # forward pass
             cp = reg(x)
@@ -95,12 +95,14 @@ def trainModel(reg, loss_func, optmodel, loader_train, loader_test, num_epochs=2
             loss.backward()
             optimizer.step()
             # record time
-            tock = time.time()
-            elapsed += tock - tick
+            #tock = time.time()
+            #elapsed += tock - tick
             # log
             loss_log.append(loss.item())
         regret = pyepo.metric.regret(reg, optmodel, loader_test)
         loss_log_regret.append(regret)
         print("Epoch {:2},  Loss: {:9.4f},  Regret: {:7.4f}%".format(epoch+1, loss.item(), regret*100))
-    print("Total Elapsed Time: {:.2f} Sec.".format(elapsed))
+    end = time.time()
+    print("Total Elapsed Time: {:.2f} Sec.".format(end-start))
     return loss_log, loss_log_regret
+
