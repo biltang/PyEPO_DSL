@@ -30,9 +30,9 @@ def setup_mlflow_experiment(client: MlflowClient, root_path: str, experiment_nam
         # Create the experiment if it doesn't exist
         experiment_id = client.create_experiment(name=experiment_name,
                                                tags=experiment_tags)
-        print(f"Created new experiment: {experiment_name} with ID {experiment_id}")
+        logger.info(f"Created new experiment: {experiment_name} with ID {experiment_id}")
     else:
         experiment_id = experiment.experiment_id
-        print(f"Using existing experiment: {experiment_name} with ID {experiment_id}")
+        logger.info(f"Using existing experiment: {experiment_name} with ID {experiment_id}")
     
     return experiment_name
