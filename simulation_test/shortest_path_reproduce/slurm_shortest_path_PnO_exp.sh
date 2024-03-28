@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=6G
-#SBATCH --time=3:10:00
+#SBATCH --time=01:30:00
 #SBATCH --mail-user=yongpeng@usc.edu
 #SBATCH --account=vayanou_651
 #SBATCH --output=./outputs/slurmlogs/%x_%j.out
@@ -17,4 +17,4 @@ module load gcc
 eval "$(conda shell.bash hook)"
 conda activate pyepo_dsl
 
-eval "$1"
+eval "$1 general.slurm_job_name=$SLURM_JOB_NAME general.slurm_job_id=$SLURM_JOB_ID"
