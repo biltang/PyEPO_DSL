@@ -117,18 +117,24 @@ class DSLFunc(torch.autograd.Function):
         w = true_sol.detach().to("cpu").numpy() # QUESTION: do we need w in this function?
         z = true_obj.detach().to("cpu").numpy() # QUESTION: do we need z in this function?
         
-        # Set the plug-in cp for the plus term in finite differencing depending on PGB vs PGC
+        # Set the plug-in cp_plus for the plus term in finite differencing depending on PGB vs PGC
+        # Set the plug-in cp_minus for the minus term in finite differencing depending on PGB vs PGC
         # also modify step_size h used in the calculation of finite difference loss function
         if finite_diff_sch == 'C':
             cp_plus = cp + h*c
+            cp_minus = cp - h*c 
             step_size = 1/(2*h)
-        else:
+        elif finite_diff_sch == 'B':
             cp_plus = cp
+            cp_minus = cp - h*c
             step_size = 1/h
-        
-        # plug-in cp for minus term in finite differencing
-        cp_minus = cp - h*c 
-        
+        elif finite_diff_sch == 'F':
+            cp_plus = cp + h*c
+            cp_minus = cp
+            step_size = 1/h
+        else:
+            raise ValueError("Invalid finite difference scheme")
+          
         #### TODO: SOLUTION POOLING/CACHE####
         sol_plus, obj_plus = _solve_in_pass(cp=cp_plus,
                                             optmodel=optmodel,
