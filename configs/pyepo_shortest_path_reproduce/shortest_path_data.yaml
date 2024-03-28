@@ -1,5 +1,6 @@
 defaults:
   - mlflow: mlflow_exp 
+  - dagshub: dagshub_cred
   - _self_
 
 sim:

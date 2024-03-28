@@ -1,0 +1,4 @@
+loss_name: MSE
+loss_func:
+  _target_: torch.nn.MSELoss
+  reduction: 'mean'  # You can also use 'sum' or 'none'

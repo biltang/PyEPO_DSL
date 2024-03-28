@@ -1,7 +1,6 @@
-loss:
-  loss_name: SPO
-  loss_func:
-    _target_: pyepo.func.spoplus.SPOPlus
-    _partial_: True
+loss_name: SPO
+loss_func:
+  _target_: pyepo.func.spoplus.SPOPlus
+  _partial_: True
 
  
