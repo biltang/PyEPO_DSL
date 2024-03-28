@@ -9,6 +9,7 @@ import hydra
 import pyepo 
 from mlflow import MlflowClient
 import pickle 
+from sklearn.model_selection import train_test_split
 
 # settings
 logger = logging.getLogger(__name__)
@@ -18,30 +19,28 @@ logger.setLevel(logging.DEBUG)
 sys.path.append('/home1/yongpeng/PyEPO_DSL/')
 from utils.experiment_utils import setup_mlflow_experiment, create_path_if_not_exist
 
-def create_shortest_path_dataset(training_n: int=1000, num_feat: int=5, grid: tuple=(5,5), deg: int=2, e: float=0.1, sim_cfg: DictConfig={}, seed: dict={'train':1,'val':2,'test':3}):
+def create_shortest_path_dataset(training_n: int=1000, num_feat: int=5, grid: tuple=(5,5), deg: int=2, e: float=0.1, sim_cfg: DictConfig={}, seed: int=42):
+    
+    total_n = training_n + sim_cfg.val_n + sim_cfg.test_n
+    
     # generate training data
-    x_train, c_train = pyepo.data.shortestpath.genData(training_n, 
-                                                    num_feat, 
-                                                    grid, 
-                                                    deg, 
-                                                    e,
-                                                    seed=seed['train'])
-    # generate validation data
-    x_val, c_val = pyepo.data.shortestpath.genData(sim_cfg.val_n, 
-                                                num_feat, 
-                                                grid, 
-                                                deg, 
-                                                e,
-                                                seed=seed['val'])
+    x, c = pyepo.data.shortestpath.genData(total_n, 
+                                        num_feat, 
+                                        grid, 
+                                        deg, 
+                                        e,
+                                        seed=seed)
     
-    # generate test data
-    x_test, c_test = pyepo.data.shortestpath.genData(sim_cfg.test_n, 
-                                                    num_feat, 
-                                                    grid, 
-                                                    deg, 
-                                                    e,
-                                                    seed=seed['test'])
+    # train, val_test split
+    x_train, x_val_test, c_train, c_val_test = train_test_split(x, c, 
+                                                                test_size=sim_cfg.val_n + sim_cfg.test_n, 
+                                                                random_state=seed)
     
+    # val, test split
+    x_val, x_test, c_val, c_test = train_test_split(x_val_test, c_val_test, 
+                                                    test_size=sim_cfg.test_n, 
+                                                    random_state=seed)
+     
     # get optDataset
     dataset_train = {"x": x_train, "c": c_train}
     dataset_val = {"x": x_val, "c": c_val}
@@ -83,6 +82,10 @@ def main(cfg: DictConfig):
                 cur_data_instance_name = f"n_{training_n}_deg_{deg}_e_{e}" 
                 path = str(Path(__file__).parent.parent.parent / "data/simulation/" / setup_name / cur_data_instance_name) # relative path to other directory
     
+                # TODO: very temporary fix for the experiment name issue for mlflow/dagshub
+                if cur_data_instance_name == 'n_100_deg_1_e_0.5':
+                    cur_data_instance_name = 'n_100_deg_1_e_0.50'
+        
                 if cfg.mlflow.create_exp == True: # create mlflow experiment in this case
                     client = MlflowClient(tracking_uri=cfg.mlflow.tracking_uri)
                     experiment_tags = {'sim_setup': setup_name,
@@ -102,12 +105,12 @@ def main(cfg: DictConfig):
             
                 # create datasets
                 for i in range(sim_cfg.num_trials):
+                    
                     logger.info(f"Trial {i+1}")
                     
                     grid = (5,5) # grid size
                     num_feat = 5 # size of feature
-                    start_seed = 3*i
-                    seed = {'train': start_seed, 'val': start_seed+1, 'test': start_seed+2}
+                    start_seed = i
                     
                     cur_dataset = create_shortest_path_dataset(training_n=training_n, 
                                                                num_feat=num_feat,
@@ -115,8 +118,8 @@ def main(cfg: DictConfig):
                                                                deg=deg,
                                                                e=e,
                                                                sim_cfg=sim_cfg,
-                                                               seed=seed)
-                    cur_dataset['seeds'] = seed
+                                                               seed=start_seed)
+                    cur_dataset['seeds'] = start_seed
                     
                     # save data
                     with open(path + '/' + f'trial_{i}.pkl', 'wb') as file:
