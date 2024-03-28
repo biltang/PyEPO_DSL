@@ -1,5 +1,6 @@
 # build optModel
 import time
+import os 
 
 from pyepo.model.grb import optGrbModel
 from torch import nn
@@ -84,15 +85,74 @@ class LinearRegression(nn.Module):
     def forward(self, x):
         out = self.linear(x)
         return out
-    
+
+class EarlyStopping:
+    """Early stops the training if validation loss doesn't improve after a given patience."""
+    def __init__(self, patience=5, verbose=False, delta=0.0001, path='./checkpoints/pyepo_shortest_path/checkpoint.pt'):
+        """
+        Args:
+            patience (int): How long to wait after last time validation loss improved.
+                            Default: 7
+            verbose (bool): If True, prints a message for each validation loss improvement. 
+                            Default: False
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+                            Default: 0
+            path (str): Path for the checkpoint to be saved to. 
+                            Default: 'checkpoint.pt'
+        """
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_regret = None
+        self.early_stop = False
+        self.delta = delta
+        self.path = path
+
+    def __call__(self, val_regret, model):
+        
+        if self.best_regret is None:
+            self.best_regret = val_regret
+            self.save_checkpoint(val_regret, model)
+            
+        elif val_regret > self.best_regret - self.delta:
+            
+            self.counter += 1
+            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+                
+        else:
+            self.best_regret = val_regret
+            self.save_checkpoint(val_regret, model)
+            self.counter = 0
+
+    def save_checkpoint(self, val_regret, model):
+        """Saves model when validation loss decrease."""
+        # Check if the checkpoints directory exists, otherwise create it
+        if not os.path.exists(os.path.dirname(self.path)):
+            os.makedirs(os.path.dirname(self.path))
+            
+        if self.verbose:
+            print(f'Validation regret decreased ({self.best_regret:.6f} --> {val_regret:.6f}).  Saving model ...')
+        torch.save(model.state_dict(), self.path)
+        
+        
 # train model
-def trainModel(reg, loss_func, optmodel, loader_train, loader_test, use_gpu=False, num_epochs=20, lr=1e-2, h_schedule=False, lr_schedule=False):
+def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, use_gpu=False, num_epochs=20, lr=1e-2, h_schedule=False, lr_schedule=False, early_stopping_cfg=None):
     # set adam optimizer
     optimizer = torch.optim.Adam(reg.parameters(), lr=lr)
     
     if lr_schedule == True:
         scheduler = StepLR(optimizer, step_size=10, gamma=0.1) # Define scheduler
     
+    if early_stopping_cfg is not None and early_stopping_cfg['enabled']:
+        print("Early Stopping Enabled")
+        early_stopping = EarlyStopping(patience=early_stopping_cfg['patience'], 
+                                       verbose=True, 
+                                       delta=early_stopping_cfg['delta'], 
+                                       path=early_stopping_cfg['checkpoint_path'])
+    
+        
     # train mode
     reg.train()
     # init log
@@ -115,7 +175,11 @@ def trainModel(reg, loss_func, optmodel, loader_train, loader_test, use_gpu=Fals
                 x, c, w, z = x.cuda(), c.cuda(), w.cuda(), z.cuda()
             # forward pass
             cp = reg(x)
-            loss = loss_func(cp, c, w, z)
+            
+            if loss_name == "MSE":
+                loss = loss_func(cp, c)
+            else:
+                loss = loss_func(cp, c, w, z)
             
             # backward pass
             optimizer.zero_grad()
@@ -133,6 +197,15 @@ def trainModel(reg, loss_func, optmodel, loader_train, loader_test, use_gpu=Fals
         regret = pyepo.metric.regret(reg, optmodel, loader_test)
         loss_log_regret.append(regret)
         print("Epoch {:2},  Loss: {:9.4f},  Regret: {:7.4f}%".format(epoch+1, loss.item(), regret*100))
+        
+        if early_stopping_cfg is not None and early_stopping_cfg['enabled']:
+            # early stopping
+            early_stopping(regret, reg)
+        
+            if early_stopping.early_stop:
+                print("We are at epoch:", epoch+1 - early_stopping.patience)
+                break
+        
     end = time.time()
     print("Total Elapsed Time: {:.2f} Sec.".format(end-start))
     return loss_log, loss_log_regret
