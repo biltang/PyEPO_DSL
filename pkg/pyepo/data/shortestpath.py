@@ -7,6 +7,29 @@ Synthetic data for Shortest path problem
 import numpy as np
 
 
+def genData_getBmatrix(num_features, grid, seed=135):
+    """
+    A function to generate B matrix for shortest path
+
+    Args:
+        num_features (int): dimension of features
+        grid (int, int): size of grid network
+        seed (int): random seed
+
+    Returns:
+       np.ndarray: B matrix
+    """
+    # set seed
+    rnd = np.random.RandomState(seed)
+    # dimension of features
+    p = num_features
+    # dimension of the cost vector
+    d = (grid[0] - 1) * grid[1] + (grid[1] - 1) * grid[0]
+    # random matrix parameter B
+    B = rnd.binomial(1, 0.5, (d, p))
+    return B
+
+
 def genData(num_data, num_features, grid, deg=1, noise_width=0, seed=135):
     """
     A function to generate synthetic data and features for shortest path
@@ -39,16 +62,24 @@ def genData(num_data, num_features, grid, deg=1, noise_width=0, seed=135):
     B = rnd.binomial(1, 0.5, (d, p))
     # feature vectors
     x = rnd.normal(0, 1, (n, p))
+    
     # cost vectors
     c = np.zeros((n, d))
+    
+    # no noise cost vectors
+    c_no_noise = np.zeros((n, d))
+    
     for i in range(n):
         # cost without noise
         ci = (np.dot(B, x[i].reshape(p, 1)).T / np.sqrt(p) + 3) ** deg + 1
         # rescale
         ci /= 3.5 ** deg
+        
+        c_no_noise[i, :] = ci
+        
         # noise
         epislon = rnd.uniform(1 - noise_width, 1 + noise_width, d)
         ci *= epislon
         c[i, :] = ci
 
-    return x, c
+    return x, c, c_no_noise, B

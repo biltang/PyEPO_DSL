@@ -1,3 +1,4 @@
 create_exp: True
 root_path: ''
-tracking_uri: /home1/yongpeng/PyEPO_DSL/simulation_test/shortest_path_reproduce/mlruns/
+tracking_uri: /home1/yongpeng/PyEPO_DSL/simulation_test/shortest_path_reproduce/mlruns/week_4_1
+local: True

@@ -7,6 +7,8 @@ from torch import nn
 from torch.optim.lr_scheduler import StepLR
 import torch 
 import pyepo 
+import numpy as np
+
 
 class shortestPathModel(optGrbModel):
 
@@ -122,8 +124,8 @@ class EarlyStopping:
                 self.early_stop = True
                 
         else:
-            self.best_regret = val_regret
             self.save_checkpoint(val_regret, model)
+            self.best_regret = val_regret
             self.counter = 0
 
     def save_checkpoint(self, val_regret, model):
@@ -143,7 +145,7 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
     optimizer = torch.optim.Adam(reg.parameters(), lr=lr)
     
     if lr_schedule == True:
-        scheduler = StepLR(optimizer, step_size=10, gamma=0.1) # Define scheduler
+        scheduler = StepLR(optimizer, step_size=20, gamma=0.1) # Define scheduler
     
     if early_stopping_cfg is not None and early_stopping_cfg['enabled']:
         print("Early Stopping Enabled")
@@ -157,7 +159,8 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
     reg.train()
     # init log
     loss_log = []
-    loss_log_regret = [pyepo.metric.regret(reg, optmodel, loader_test)]
+    train_regret_log = [pyepo.metric.regret(reg, optmodel, loader_train)]
+    val_regret_log = [pyepo.metric.regret(reg, optmodel, loader_test)]
     # init elpased time
     start = time.time()
     for epoch in range(num_epochs):
@@ -168,6 +171,7 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
             print("h: ", loss_func.h)
             
         # load data
+        batch_loss = [0]
         for i, data in enumerate(loader_train):
             x, c, w, z = data
             # cuda
@@ -176,8 +180,13 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
             # forward pass
             cp = reg(x)
             
-            if loss_name == "MSE":
+            if loss_name in ['MSE', 'CosineSurrogate', 'CosineMSE']:
                 loss = loss_func(cp, c)
+            elif loss_name == 'Cosine':
+                target = torch.ones(c.size(0))
+                if use_gpu == True:
+                    target = target.cuda()
+                loss = loss_func(cp, c, target=target)
             else:
                 loss = loss_func(cp, c, w, z)
             
@@ -189,18 +198,25 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
             #tock = time.time()
             #elapsed += tock - tick
             # log
-            loss_log.append(loss.item())
+            batch_loss.append(loss.item())
+        
+        loss_log.append(np.mean(batch_loss))
             
         if lr_schedule == True:
             scheduler.step()
-            
-        regret = pyepo.metric.regret(reg, optmodel, loader_test)
-        loss_log_regret.append(regret)
-        print("Epoch {:2},  Loss: {:9.4f},  Regret: {:7.4f}%".format(epoch+1, loss.item(), regret*100))
+        
+        # train regret
+        train_regret = pyepo.metric.regret(reg, optmodel, loader_train)
+        train_regret_log.append(train_regret)
+        
+        # val regret
+        val_regret = pyepo.metric.regret(reg, optmodel, loader_test)
+        val_regret_log.append(val_regret)
+        print("Epoch {:2},  Loss: {:9.4f},  Train_Regret: {:7.4f}%, Val_Regret: {:7.4f}%".format(epoch+1, loss_log[-1],  train_regret*100, val_regret*100))
         
         if early_stopping_cfg is not None and early_stopping_cfg['enabled']:
             # early stopping
-            early_stopping(regret, reg)
+            early_stopping(val_regret, reg)
         
             if early_stopping.early_stop:
                 print("We are at epoch:", epoch+1 - early_stopping.patience)
@@ -208,4 +224,9 @@ def trainModel(reg, loss_func, loss_name, optmodel, loader_train, loader_test, u
         
     end = time.time()
     print("Total Elapsed Time: {:.2f} Sec.".format(end-start))
-    return loss_log, loss_log_regret
+    
+    if early_stopping_cfg is not None and early_stopping_cfg['enabled']:
+        load_epoch = epoch + 1 - early_stopping.patience
+        return loss_log[load_epoch-1], train_regret_log[load_epoch], val_regret_log[load_epoch]
+    else:
+        return loss_log[-1], train_regret_log[-1], val_regret_log[-1]

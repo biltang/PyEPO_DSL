@@ -1,3 +1,4 @@
 create_exp: True
 root_path: ''
 tracking_uri: https://dagshub.com/biltang/PyEPO_DSL.mlflow
+local: False

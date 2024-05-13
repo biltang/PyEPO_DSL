@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=10
-#SBATCH --mem=6G
-#SBATCH --time=01:30:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=32G
+#SBATCH --time=00:30:00
 #SBATCH --mail-user=yongpeng@usc.edu
 #SBATCH --account=vayanou_651
 #SBATCH --output=./outputs/slurmlogs/%x_%j.out

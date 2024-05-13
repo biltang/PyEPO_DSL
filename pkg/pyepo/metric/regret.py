@@ -45,6 +45,34 @@ def regret(predmodel, optmodel, dataloader):
     # normalized
     return loss / (optsum + 1e-7)
 
+def get_regret_with_values(y_true, y_pred, optmodel, true_obj):
+    """_summary_
+
+    Args:
+        y_true (_type_): _description_
+        y_pred (_type_): _description_
+        optmodel (_type_): _description_
+        true_obj (_type_): _description_
+    """
+    y_true = torch.tensor(y_true)
+    y_pred = torch.tensor(y_pred)
+    
+    loss = 0
+    optsum = 0
+    
+    for j in range(y_pred.shape[0]):
+        # accumulate loss
+        loss += calRegret(optmodel, y_pred[j], y_true[j],
+                          true_obj[j])
+    
+    optsum += abs(true_obj).sum().item()
+
+    # normalized
+    regret = loss / (optsum + 1e-7)
+    
+    return regret
+    
+
 
 def calRegret(optmodel, pred_cost, true_cost, true_obj):
     """
@@ -70,3 +98,5 @@ def calRegret(optmodel, pred_cost, true_cost, true_obj):
     if optmodel.modelSense == EPO.MAXIMIZE:
         loss = true_obj - obj
     return loss
+
+

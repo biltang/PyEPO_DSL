@@ -1,24 +1,25 @@
 defaults:
   - mlflow: mlflow_exp_local
-  - dagshub: dagshub_cred
+  - cred: dagshub_cred
   - loss_func: dsl
   - _self_
 
 general:
-  gpus: 0
+  gpus: 1
   log_level: 10
   slurm_job_name: null
   slurm_job_id: null
   slurm_output: ./outputs/slurmlogs/
+  track_experiment: False
 dataset:
   base_path: /home1/yongpeng/PyEPO_DSL/data/simulation/
   setup: pyepo_shortest_path_reproduce
-  dataset_path: n_100_deg_4_e_0.5
+  dataset_path: n_100_deg_6_e_0.5
   file: trial_
   num_trials: 10
   file_extension: .pkl
 model:
-  mse_init: True
+  mse_init: False
   mse_init_params:
     mse_path_orig: /home1/yongpeng/PyEPO_DSL/checkpoints/pyepo_shortest_path_reproduce/
     mse_path: /home1/yongpeng/PyEPO_DSL/checkpoints/pyepo_shortest_path_reproduce/
@@ -26,11 +27,11 @@ model:
   lr: 0.01
   lr_schedule: False
   processes: 0
-  epochs: 50
-  early_stopping: True
+  epochs: 200
+  early_stopping: False
   early_stopping_params:
     enabled: True
-    patience: 10
+    patience: 50
     delta: 0.0001
     checkpoint_path_orig: /home1/yongpeng/PyEPO_DSL/checkpoints/pyepo_shortest_path_reproduce/
     checkpoint_path: /home1/yongpeng/PyEPO_DSL/checkpoints/pyepo_shortest_path_reproduce/

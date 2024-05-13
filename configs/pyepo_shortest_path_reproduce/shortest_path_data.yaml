@@ -1,6 +1,6 @@
 defaults:
   - mlflow: mlflow_exp 
-  - dagshub: dagshub_cred
+  - cred: dagshub_cred
   - _self_
 
 sim:
@@ -18,5 +18,6 @@ sim:
   noise_half_width: 
     - 0.0
     - 0.5
+  no_noise_test: True
   num_trials: 10
   sim_setup_name: pyepo_shortest_path_reproduce
